@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OneClick-KugouMP3</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>OneClick-KugouMP3</h1>
+      <p>适合小白的酷狗音频一键转换工具</p>
+    </header>
+
+    <section class="card">
+      <h2>1. 环境状态</h2>
+      <div id="status" class="status-grid"></div>
+    </section>
+
+    <section class="card">
+      <h2>2. 选择文件</h2>
+      <div class="actions">
+        <button id="pickBtn">选择文件</button>
+        <button id="clearBtn" class="secondary">清空列表</button>
+        <input id="fileInput" type="file" multiple accept=".kgg,.kgm,.kgma,.flac" style="display:none;" />
+      </div>
+      <div id="dropzone">把 kgg / kgm / kgma / flac 文件拖到这里</div>
+      <ul id="fileList"></ul>
+    </section>
+
+    <section class="card">
+      <h2>3. 开始转换</h2>
+      <div class="actions">
+        <button id="convertBtn" class="primary">开始转换</button>
+        <button id="openOutputBtn" class="secondary">打开 output</button>
+        <button id="openLogsBtn" class="secondary">打开 logs</button>
+      </div>
+      <div id="result" class="result"></div>
+      <pre id="logBox"></pre>
+    </section>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
