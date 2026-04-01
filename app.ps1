@@ -56,6 +56,7 @@ function Ensure-Tools {
         ffmpeg   = Test-Path -LiteralPath (Join-Path $ToolsDir 'ffmpeg.exe')
         kgmMask  = Test-Path -LiteralPath (Join-Path $ToolsDir 'kgm.mask')
         infra    = Test-Path -LiteralPath (Join-Path $ToolsDir 'infra.dll')
+        ncmdump  = Test-Path -LiteralPath (Join-Path $ToolsDir 'ncmdump.exe')
         kugouDb  = [bool](Find-KuGouDb)
     }
 
@@ -70,8 +71,36 @@ function Ensure-Tools {
     return $status
 }
 
+function Get-Mp3QualityConfig {
+    param([string]$Preset)
+
+    switch ($Preset) {
+        '标准' {
+            return [pscustomobject]@{
+                Label = '标准'
+                Args  = @('-codec:a', 'libmp3lame', '-q:a', '2')
+            }
+        }
+        '省空间' {
+            return [pscustomobject]@{
+                Label = '省空间'
+                Args  = @('-codec:a', 'libmp3lame', '-b:a', '128k')
+            }
+        }
+        default {
+            return [pscustomobject]@{
+                Label = '高质量'
+                Args  = @('-codec:a', 'libmp3lame', '-q:a', '0')
+            }
+        }
+    }
+}
+
 function Convert-AudioFiles {
-    param([string[]]$SourcePaths)
+    param(
+        [string[]]$SourcePaths,
+        [string]$QualityPreset = '高质量'
+    )
 
     $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
     $logFile = Join-Path $LogsDir ("run-$timestamp.log")
@@ -86,7 +115,9 @@ function Convert-AudioFiles {
     $ffmpeg = Join-Path $ToolsDir 'ffmpeg.exe'
     $kgmMask = Join-Path $ToolsDir 'kgm.mask'
     $infra = Join-Path $ToolsDir 'infra.dll'
+    $ncmdump = Join-Path $ToolsDir 'ncmdump.exe'
     $db = Find-KuGouDb
+    $qualityConfig = Get-Mp3QualityConfig -Preset $QualityPreset
 
     if (-not (Test-Path -LiteralPath $kggDec)) { throw 'Missing kgg-dec.exe' }
     if (-not (Test-Path -LiteralPath $unlock64)) { throw 'Missing unlockKuGoWin-64.exe' }
@@ -95,6 +126,7 @@ function Convert-AudioFiles {
 
     $lines = New-Object 'System.Collections.Generic.List[string]'
     $lines.Add('[信息] 开始转换')
+    $lines.Add('[信息] 输出质量：' + $qualityConfig.Label)
 
     Copy-Item -LiteralPath $kggDec -Destination (Join-Path $workDir 'kgg-dec.exe') -Force
     Copy-Item -LiteralPath $unlock64 -Destination (Join-Path $workDir 'unlockKuGoWin-64.exe') -Force
@@ -103,6 +135,9 @@ function Convert-AudioFiles {
 
     if (Test-Path -LiteralPath $infra) {
         Copy-Item -LiteralPath $infra -Destination (Join-Path $workDir 'infra.dll') -Force
+    }
+    if (Test-Path -LiteralPath $ncmdump) {
+        Copy-Item -LiteralPath $ncmdump -Destination (Join-Path $workDir 'ncmdump.exe') -Force
     }
 
     foreach ($src in $SourcePaths) {
@@ -160,7 +195,34 @@ function Convert-AudioFiles {
             }
         }
 
-        $rootFlacs = @(Get-ChildItem -LiteralPath $workDir -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -like '*_kgg-dec.flac' })
+        $ncmFiles = @(Get-ChildItem -LiteralPath $workDir -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -eq '.ncm' })
+        if ($ncmFiles.Count -gt 0) {
+            if (-not (Test-Path -LiteralPath (Join-Path $workDir 'ncmdump.exe'))) {
+                $lines.Add('[警告] 检测到 NCM 文件，但 tools 中缺少 ncmdump.exe，已跳过 NCM 转换。')
+            }
+            else {
+                $lines.Add('[信息] 正在处理 NCM，数量：' + $ncmFiles.Count)
+                $previousPreference = $ErrorActionPreference
+                try {
+                    $ErrorActionPreference = 'Continue'
+                    $result = & (Join-Path $workDir 'ncmdump.exe') -o $workDir -- @($ncmFiles | Select-Object -ExpandProperty FullName) 2>&1 | Out-String
+                    $exitCode = $LASTEXITCODE
+                }
+                finally {
+                    $ErrorActionPreference = $previousPreference
+                }
+                if ($result) {
+                    foreach ($line in ($result.Trim() -split "`r?`n")) {
+                        if ($line) { $lines.Add($line) }
+                    }
+                }
+                if ($exitCode -ne 0) {
+                    $lines.Add('[警告] ncmdump 退出码：' + $exitCode)
+                }
+            }
+        }
+
+        $rootFlacs = @(Get-ChildItem -LiteralPath $workDir -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -like '*_kgg-dec.flac' -or $_.Extension -eq '.flac' })
         foreach ($file in $rootFlacs) {
             $baseName = [IO.Path]::GetFileNameWithoutExtension($file.Name)
             if ($baseName.EndsWith('_kgg-dec')) {
@@ -171,7 +233,7 @@ function Convert-AudioFiles {
             $previousPreference = $ErrorActionPreference
             try {
                 $ErrorActionPreference = 'Continue'
-                & $ffmpeg -y -i $file.FullName -codec:a libmp3lame -q:a 0 -map_metadata 0 $dst 2>&1 | Out-Null
+                & $ffmpeg -y -i $file.FullName @($qualityConfig.Args) -map_metadata 0 $dst 2>&1 | Out-Null
                 $exitCode = $LASTEXITCODE
             }
             finally {
@@ -189,7 +251,7 @@ function Convert-AudioFiles {
             $previousPreference = $ErrorActionPreference
             try {
                 $ErrorActionPreference = 'Continue'
-                & $ffmpeg -y -i $file.FullName -codec:a libmp3lame -q:a 0 -map_metadata 0 $dst 2>&1 | Out-Null
+                & $ffmpeg -y -i $file.FullName @($qualityConfig.Args) -map_metadata 0 $dst 2>&1 | Out-Null
                 $exitCode = $LASTEXITCODE
             }
             finally {
@@ -197,6 +259,15 @@ function Convert-AudioFiles {
             }
             if ($exitCode -ne 0) {
                 $lines.Add('[警告] ffmpeg 退出码：' + $exitCode)
+            }
+        }
+
+        $ncmMp3Files = @(Get-ChildItem -LiteralPath $workDir -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -eq '.mp3' })
+        foreach ($file in $ncmMp3Files) {
+            $dst = Join-Path $OutputDir $file.Name
+            if ([System.IO.Path]::GetFullPath($file.FullName) -ne [System.IO.Path]::GetFullPath($dst)) {
+                Copy-Item -LiteralPath $file.FullName -Destination $dst -Force
+                $lines.Add('[信息] 已输出 NCM 生成的 MP3：' + $file.Name)
             }
         }
     }
@@ -240,7 +311,7 @@ $title.AutoSize = $true
 $form.Controls.Add($title)
 
 $desc = New-Object System.Windows.Forms.Label
-$desc.Text = '选择 kgg / kgm / kgma / flac 文件，一键转换成 mp3。'
+$desc.Text = '选择 kgg / kgm / kgma / flac / ncm 文件，一键转换成 mp3。'
 $desc.Location = New-Object System.Drawing.Point(22, 50)
 $desc.AutoSize = $true
 $form.Controls.Add($desc)
@@ -254,6 +325,22 @@ $statusBox.Size = New-Object System.Drawing.Size(390, 150)
 $statusBox.BackColor = [System.Drawing.Color]::WhiteSmoke
 $statusBox.BorderStyle = 'FixedSingle'
 $form.Controls.Add($statusBox)
+
+$qualityLabel = New-Object System.Windows.Forms.Label
+$qualityLabel.Text = '输出质量：'
+$qualityLabel.Location = New-Object System.Drawing.Point(20, 250)
+$qualityLabel.AutoSize = $true
+$form.Controls.Add($qualityLabel)
+
+$qualityCombo = New-Object System.Windows.Forms.ComboBox
+$qualityCombo.Location = New-Object System.Drawing.Point(95, 246)
+$qualityCombo.Size = New-Object System.Drawing.Size(140, 28)
+$qualityCombo.DropDownStyle = 'DropDownList'
+[void]$qualityCombo.Items.Add('高质量')
+[void]$qualityCombo.Items.Add('标准')
+[void]$qualityCombo.Items.Add('省空间')
+$qualityCombo.SelectedIndex = 0
+$form.Controls.Add($qualityCombo)
 
 $fileList = New-Object System.Windows.Forms.ListBox
 $fileList.Location = New-Object System.Drawing.Point(20, 280)
@@ -273,7 +360,7 @@ $form.Controls.Add($logBox)
 
 $resultLabel = New-Object System.Windows.Forms.Label
 $resultLabel.Text = '准备就绪。'
-$resultLabel.Location = New-Object System.Drawing.Point(20, 250)
+$resultLabel.Location = New-Object System.Drawing.Point(250, 250)
 $resultLabel.AutoSize = $true
 $form.Controls.Add($resultLabel)
 
@@ -325,6 +412,7 @@ function Refresh-StatusView {
         ('ffmpeg.exe         ：' + $(if ($status.ffmpeg) { '已就绪' } else { '缺失' })),
         ('kgm.mask           ：' + $(if ($status.kgmMask) { '已就绪' } else { '缺失' })),
         ('infra.dll          ：' + $(if ($status.infra) { '已就绪' } else { '缺失' })),
+        ('ncmdump.exe        ：' + $(if ($status.ncmdump) { '已就绪' } else { '缺失' })),
         ('KGMusicV3.db       ：' + $(if ($status.kugouDb) { '已找到' } else { '未找到' })),
         '',
         ('数据库路径         ：' + $(if ($dbPath) { $dbPath } else { '未检测到' })),
@@ -339,7 +427,7 @@ Refresh-StatusView
 $btnPick.Add_Click({
     $dialog = New-Object System.Windows.Forms.OpenFileDialog
     $dialog.Multiselect = $true
-    $dialog.Filter = '音频文件|*.kgg;*.kgm;*.kgma;*.flac'
+    $dialog.Filter = '音频文件|*.kgg;*.kgm;*.kgma;*.flac;*.ncm'
     $dialog.Title = '选择音频文件'
     if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
         foreach ($file in $dialog.FileNames) {
@@ -357,6 +445,7 @@ $btnClear.Add_Click({
     $fileList.Items.Clear()
     $logBox.Clear()
     $resultLabel.Text = '准备就绪。'
+    $qualityCombo.SelectedIndex = 0
 })
 
 $btnOutput.Add_Click({ Start-Process -FilePath 'explorer.exe' -ArgumentList $OutputDir | Out-Null })
@@ -375,7 +464,7 @@ $btnConvert.Add_Click({
         $resultLabel.Text = '正在转换...'
         $logBox.Text = '正在执行转换，请稍候...' + [Environment]::NewLine
 
-        $result = Convert-AudioFiles -SourcePaths @($selectedFiles.ToArray())
+        $result = Convert-AudioFiles -SourcePaths @($selectedFiles.ToArray()) -QualityPreset $qualityCombo.SelectedItem.ToString()
         $logBox.Text = ($result.messages -join [Environment]::NewLine)
         $resultLabel.Text = '转换完成，MP3 数量：' + $result.mp3Count
 

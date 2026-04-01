@@ -1,0 +1,33 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "command": "$inputJson = [Console]::In.ReadToEnd() | ConvertFrom-Json; $path = $inputJson.tool_input.file_path; if (-not $path) { exit 0 }; $projectRoot = 'c:\\Users\\Administrator\\Desktop\\KugouMusic\\KugouMusic\\1\\OneClick-KugouMP3-Pack'; $full = [System.IO.Path]::GetFullPath($path); $relative = $full.Substring($projectRoot.Length).TrimStart('\\','/'); $blocked = $false; if ($relative -match '^tools[\\/].+\\.(exe|dll)$') { $blocked = $true }; if ($relative -match '^tools[\\/].+\\.mask$') { $blocked = $true }; if ($relative -match '^(output|logs)([\\/]|$)') { $blocked = $true }; if ($relative -match '^work-[^\\/]+([\\/]|$)') { $blocked = $true }; if ($blocked) { @{ continue = $false; stopReason = '当前项目禁止直接修改 tools、output、logs、work-* 目录中的文件。'; suppressOutput = $true } | ConvertTo-Json -Compress }"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "command": "$inputJson = [Console]::In.ReadToEnd() | ConvertFrom-Json; $path = $inputJson.tool_input.file_path; if (-not $path) { exit 0 }; $full = [System.IO.Path]::GetFullPath($path); $target = 'c:\\Users\\Administrator\\Desktop\\KugouMusic\\KugouMusic\\1\\OneClick-KugouMP3-Pack\\app.ps1'; if ($full -ne $target) { exit 0 }; $ast = $null; $errors = $null; [void][System.Management.Automation.Language.Parser]::ParseFile($target, [ref]$ast, [ref]$errors); if ($errors.Count -gt 0) { $message = ($errors | ForEach-Object { $_.ToString() }) -join '\n'; @{ continue = $false; stopReason = \"app.ps1 语法检查失败：\n$message\"; suppressOutput = $true } | ConvertTo-Json -Compress } else { @{ hookSpecificOutput = @{ hookEventName = 'PostToolUse'; additionalContext = '项目 hook：app.ps1 语法检查已通过。' }; suppressOutput = $true } | ConvertTo-Json -Compress }"
+          },
+          {
+            "type": "command",
+            "shell": "powershell",
+            "command": "$inputJson = [Console]::In.ReadToEnd() | ConvertFrom-Json; $path = $inputJson.tool_input.file_path; if (-not $path) { exit 0 }; $full = [System.IO.Path]::GetFullPath($path); $projectRoot = 'c:\\Users\\Administrator\\Desktop\\KugouMusic\\KugouMusic\\1\\OneClick-KugouMP3-Pack'; $targets = @([System.IO.Path]::Combine($projectRoot,'README_小白先看.txt'), [System.IO.Path]::Combine($projectRoot,'CLAUDE.md'), [System.IO.Path]::Combine($projectRoot,'.claude','settings.json')); if ($targets -contains $full) { @{ hookSpecificOutput = @{ hookEventName = 'PostToolUse'; additionalContext = '项目 hook：你刚修改了说明或约束文件，请同步检查 README、CLAUDE.md、settings.json 与当前支持格式和规则是否一致。' }; suppressOutput = $true } | ConvertTo-Json -Compress }"
+          }
+        ]
+      }
+    ]
+  }
+}
