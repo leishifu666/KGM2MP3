@@ -377,7 +377,7 @@ function Convert-AudioFiles {
 }
 
 $form = New-Object System.Windows.Forms.Form
-$form.Text = '酷狗音频一键转 MP3'
+$form.Text = '音频一键转换工具'
 $form.Size = New-Object System.Drawing.Size(860, 680)
 $form.StartPosition = 'CenterScreen'
 $form.BackColor = [System.Drawing.Color]::White
@@ -385,37 +385,58 @@ $form.ForeColor = [System.Drawing.Color]::Black
 $form.Font = New-Object System.Drawing.Font('Microsoft YaHei', 10)
 
 $title = New-Object System.Windows.Forms.Label
-$title.Text = '酷狗音频一键转 MP3'
+$title.Text = '音频一键转换工具'
 $title.Font = New-Object System.Drawing.Font('Microsoft YaHei', 18, [System.Drawing.FontStyle]::Bold)
 $title.Location = New-Object System.Drawing.Point(20, 15)
 $title.AutoSize = $true
 $form.Controls.Add($title)
 
 $desc = New-Object System.Windows.Forms.Label
-$desc.Text = '支持 kgg / kgm / kgma / ncm / mp3 / wav / aac / m4a / flac / ogg / wma / opus 输入，可导出为 MP3 / WAV / FLAC / M4A / OGG / OPUS / WMA。'
+$desc.Text = '添加文件、选择输出格式，然后一键开始转换。'
 $desc.Location = New-Object System.Drawing.Point(22, 50)
 $desc.AutoSize = $true
 $form.Controls.Add($desc)
+
+$inputFormatsLabel = New-Object System.Windows.Forms.Label
+$inputFormatsLabel.Text = '支持输入：KGG / KGM / KGMA / NCM / MP3 / WAV / AAC / M4A / FLAC / OGG / WMA / OPUS'
+$inputFormatsLabel.Location = New-Object System.Drawing.Point(22, 72)
+$inputFormatsLabel.AutoSize = $true
+$inputFormatsLabel.ForeColor = [System.Drawing.Color]::DarkBlue
+$form.Controls.Add($inputFormatsLabel)
+
+$envLabel = New-Object System.Windows.Forms.Label
+$envLabel.Text = '环境检查'
+$envLabel.Font = New-Object System.Drawing.Font('Microsoft YaHei', 10, [System.Drawing.FontStyle]::Bold)
+$envLabel.Location = New-Object System.Drawing.Point(20, 104)
+$envLabel.AutoSize = $true
+$form.Controls.Add($envLabel)
 
 $statusBox = New-Object System.Windows.Forms.TextBox
 $statusBox.Multiline = $true
 $statusBox.ReadOnly = $true
 $statusBox.ScrollBars = 'Vertical'
-$statusBox.Location = New-Object System.Drawing.Point(20, 90)
-$statusBox.Size = New-Object System.Drawing.Size(390, 150)
+$statusBox.Location = New-Object System.Drawing.Point(20, 126)
+$statusBox.Size = New-Object System.Drawing.Size(390, 104)
 $statusBox.BackColor = [System.Drawing.Color]::WhiteSmoke
 $statusBox.BorderStyle = 'FixedSingle'
 $form.Controls.Add($statusBox)
 
+$settingsLabel = New-Object System.Windows.Forms.Label
+$settingsLabel.Text = '转换设置'
+$settingsLabel.Font = New-Object System.Drawing.Font('Microsoft YaHei', 10, [System.Drawing.FontStyle]::Bold)
+$settingsLabel.Location = New-Object System.Drawing.Point(20, 240)
+$settingsLabel.AutoSize = $true
+$form.Controls.Add($settingsLabel)
+
 $qualityLabel = New-Object System.Windows.Forms.Label
 $qualityLabel.Text = '输出质量：'
-$qualityLabel.Location = New-Object System.Drawing.Point(20, 250)
+$qualityLabel.Location = New-Object System.Drawing.Point(20, 268)
 $qualityLabel.AutoSize = $true
 $form.Controls.Add($qualityLabel)
 
 $qualityCombo = New-Object System.Windows.Forms.ComboBox
-$qualityCombo.Location = New-Object System.Drawing.Point(95, 246)
-$qualityCombo.Size = New-Object System.Drawing.Size(140, 28)
+$qualityCombo.Location = New-Object System.Drawing.Point(95, 264)
+$qualityCombo.Size = New-Object System.Drawing.Size(130, 28)
 $qualityCombo.DropDownStyle = 'DropDownList'
 [void]$qualityCombo.Items.Add('高质量')
 [void]$qualityCombo.Items.Add('标准')
@@ -425,13 +446,13 @@ $form.Controls.Add($qualityCombo)
 
 $outputFormatLabel = New-Object System.Windows.Forms.Label
 $outputFormatLabel.Text = '输出格式：'
-$outputFormatLabel.Location = New-Object System.Drawing.Point(250, 250)
+$outputFormatLabel.Location = New-Object System.Drawing.Point(235, 268)
 $outputFormatLabel.AutoSize = $true
 $form.Controls.Add($outputFormatLabel)
 
 $outputFormatCombo = New-Object System.Windows.Forms.ComboBox
-$outputFormatCombo.Location = New-Object System.Drawing.Point(325, 246)
-$outputFormatCombo.Size = New-Object System.Drawing.Size(85, 28)
+$outputFormatCombo.Location = New-Object System.Drawing.Point(310, 264)
+$outputFormatCombo.Size = New-Object System.Drawing.Size(100, 28)
 $outputFormatCombo.DropDownStyle = 'DropDownList'
 [void]$outputFormatCombo.Items.Add('MP3')
 [void]$outputFormatCombo.Items.Add('WAV')
@@ -443,62 +464,107 @@ $outputFormatCombo.DropDownStyle = 'DropDownList'
 $outputFormatCombo.SelectedIndex = 0
 $form.Controls.Add($outputFormatCombo)
 
+$qualityHintLabel = New-Object System.Windows.Forms.Label
+$qualityHintLabel.Text = '质量档位仅对 MP3 输出生效。'
+$qualityHintLabel.Location = New-Object System.Drawing.Point(20, 298)
+$qualityHintLabel.AutoSize = $true
+$qualityHintLabel.ForeColor = [System.Drawing.Color]::DimGray
+$form.Controls.Add($qualityHintLabel)
+
+$filesLabel = New-Object System.Windows.Forms.Label
+$filesLabel.Text = '待处理文件'
+$filesLabel.Font = New-Object System.Drawing.Font('Microsoft YaHei', 10, [System.Drawing.FontStyle]::Bold)
+$filesLabel.Location = New-Object System.Drawing.Point(20, 326)
+$filesLabel.AutoSize = $true
+$form.Controls.Add($filesLabel)
+
+$fileCountLabel = New-Object System.Windows.Forms.Label
+$fileCountLabel.Text = '共 0 个文件'
+$fileCountLabel.Location = New-Object System.Drawing.Point(330, 326)
+$fileCountLabel.AutoSize = $true
+$fileCountLabel.ForeColor = [System.Drawing.Color]::DimGray
+$form.Controls.Add($fileCountLabel)
+
 $fileList = New-Object System.Windows.Forms.ListBox
-$fileList.Location = New-Object System.Drawing.Point(20, 280)
-$fileList.Size = New-Object System.Drawing.Size(390, 280)
+$fileList.Location = New-Object System.Drawing.Point(20, 350)
+$fileList.Size = New-Object System.Drawing.Size(390, 210)
 $fileList.BackColor = [System.Drawing.Color]::WhiteSmoke
+$fileList.SelectionMode = 'MultiExtended'
 $form.Controls.Add($fileList)
+
+$summaryLabel = New-Object System.Windows.Forms.Label
+$summaryLabel.Text = '结果摘要'
+$summaryLabel.Font = New-Object System.Drawing.Font('Microsoft YaHei', 10, [System.Drawing.FontStyle]::Bold)
+$summaryLabel.Location = New-Object System.Drawing.Point(430, 88)
+$summaryLabel.AutoSize = $true
+$form.Controls.Add($summaryLabel)
+
+$summaryBox = New-Object System.Windows.Forms.TextBox
+$summaryBox.Multiline = $true
+$summaryBox.ReadOnly = $true
+$summaryBox.Location = New-Object System.Drawing.Point(430, 110)
+$summaryBox.Size = New-Object System.Drawing.Size(390, 95)
+$summaryBox.BackColor = [System.Drawing.Color]::WhiteSmoke
+$summaryBox.BorderStyle = 'FixedSingle'
+$form.Controls.Add($summaryBox)
+
+$logLabel = New-Object System.Windows.Forms.Label
+$logLabel.Text = '处理日志'
+$logLabel.Font = New-Object System.Drawing.Font('Microsoft YaHei', 10, [System.Drawing.FontStyle]::Bold)
+$logLabel.Location = New-Object System.Drawing.Point(430, 215)
+$logLabel.AutoSize = $true
+$form.Controls.Add($logLabel)
 
 $logBox = New-Object System.Windows.Forms.TextBox
 $logBox.Multiline = $true
 $logBox.ReadOnly = $true
 $logBox.ScrollBars = 'Vertical'
-$logBox.Location = New-Object System.Drawing.Point(430, 90)
-$logBox.Size = New-Object System.Drawing.Size(390, 470)
+$logBox.Location = New-Object System.Drawing.Point(430, 237)
+$logBox.Size = New-Object System.Drawing.Size(390, 323)
 $logBox.BackColor = [System.Drawing.Color]::WhiteSmoke
 $logBox.BorderStyle = 'FixedSingle'
 $form.Controls.Add($logBox)
 
-$resultLabel = New-Object System.Windows.Forms.Label
-$resultLabel.Text = '准备就绪。'
-$resultLabel.Location = New-Object System.Drawing.Point(250, 250)
-$resultLabel.AutoSize = $true
-$form.Controls.Add($resultLabel)
-
 $btnPick = New-Object System.Windows.Forms.Button
-$btnPick.Text = '选择文件'
+$btnPick.Text = '添加文件'
 $btnPick.Location = New-Object System.Drawing.Point(20, 585)
-$btnPick.Size = New-Object System.Drawing.Size(110, 36)
+$btnPick.Size = New-Object System.Drawing.Size(95, 36)
 $form.Controls.Add($btnPick)
+
+$btnRemove = New-Object System.Windows.Forms.Button
+$btnRemove.Text = '移除选中'
+$btnRemove.Location = New-Object System.Drawing.Point(125, 585)
+$btnRemove.Size = New-Object System.Drawing.Size(105, 36)
+$form.Controls.Add($btnRemove)
 
 $btnClear = New-Object System.Windows.Forms.Button
 $btnClear.Text = '清空列表'
-$btnClear.Location = New-Object System.Drawing.Point(140, 585)
-$btnClear.Size = New-Object System.Drawing.Size(110, 36)
+$btnClear.Location = New-Object System.Drawing.Point(240, 585)
+$btnClear.Size = New-Object System.Drawing.Size(95, 36)
 $form.Controls.Add($btnClear)
 
 $btnConvert = New-Object System.Windows.Forms.Button
 $btnConvert.Text = '开始转换'
-$btnConvert.Location = New-Object System.Drawing.Point(260, 585)
-$btnConvert.Size = New-Object System.Drawing.Size(120, 36)
+$btnConvert.Location = New-Object System.Drawing.Point(345, 585)
+$btnConvert.Size = New-Object System.Drawing.Size(105, 36)
 $form.Controls.Add($btnConvert)
 
 $btnOutput = New-Object System.Windows.Forms.Button
-$btnOutput.Text = '打开 output'
-$btnOutput.Location = New-Object System.Drawing.Point(430, 585)
-$btnOutput.Size = New-Object System.Drawing.Size(120, 36)
+$btnOutput.Text = '打开输出目录'
+$btnOutput.Location = New-Object System.Drawing.Point(460, 585)
+$btnOutput.Size = New-Object System.Drawing.Size(110, 36)
 $form.Controls.Add($btnOutput)
 
 $btnLogs = New-Object System.Windows.Forms.Button
-$btnLogs.Text = '打开 logs'
-$btnLogs.Location = New-Object System.Drawing.Point(560, 585)
-$btnLogs.Size = New-Object System.Drawing.Size(120, 36)
+$btnLogs.Text = '打开日志目录'
+$btnLogs.Location = New-Object System.Drawing.Point(580, 585)
+$btnLogs.Size = New-Object System.Drawing.Size(105, 36)
 $form.Controls.Add($btnLogs)
 
 $btnRefresh = New-Object System.Windows.Forms.Button
-$btnRefresh.Text = '刷新状态'
-$btnRefresh.Location = New-Object System.Drawing.Point(690, 585)
-$btnRefresh.Size = New-Object System.Drawing.Size(130, 36)
+$btnRefresh.Text = '刷新环境状态'
+$btnRefresh.Location = New-Object System.Drawing.Point(695, 585)
+$btnRefresh.Size = New-Object System.Drawing.Size(125, 36)
 $form.Controls.Add($btnRefresh)
 
 $selectedFiles = New-Object 'System.Collections.Generic.List[string]'
@@ -507,6 +573,49 @@ function Update-OutputControls {
     $isMp3 = $outputFormatCombo.SelectedItem.ToString() -eq 'MP3'
     $qualityCombo.Enabled = $isMp3
     $qualityLabel.Enabled = $isMp3
+    if ($isMp3) {
+        $qualityHintLabel.Text = '质量档位仅对 MP3 输出生效。'
+    }
+    else {
+        $qualityHintLabel.Text = '当前输出格式使用固定参数导出。'
+    }
+}
+
+function Update-FileActionState {
+    $hasFiles = $selectedFiles.Count -gt 0
+    $hasSelection = $fileList.SelectedItems.Count -gt 0
+    $btnConvert.Enabled = $hasFiles
+    $btnClear.Enabled = $hasFiles
+    $btnRemove.Enabled = $hasSelection
+}
+
+function Set-BusyState {
+    param([bool]$IsBusy)
+
+    $btnPick.Enabled = -not $IsBusy
+    $btnRemove.Enabled = (-not $IsBusy) -and ($fileList.SelectedItems.Count -gt 0)
+    $btnClear.Enabled = (-not $IsBusy) -and ($selectedFiles.Count -gt 0)
+    $btnConvert.Enabled = (-not $IsBusy) -and ($selectedFiles.Count -gt 0)
+    $btnOutput.Enabled = -not $IsBusy
+    $btnLogs.Enabled = -not $IsBusy
+    $btnRefresh.Enabled = -not $IsBusy
+    $outputFormatCombo.Enabled = -not $IsBusy
+    if (-not $IsBusy) {
+        Update-OutputControls
+    }
+    else {
+        $qualityCombo.Enabled = $false
+        $qualityLabel.Enabled = $false
+    }
+}
+
+function Update-ResultSummary {
+    param(
+        [string]$StatusText,
+        [string[]]$Details = @()
+    )
+
+    $summaryBox.Text = @($StatusText) + $Details -join [Environment]::NewLine
 }
 
 function Refresh-StatusView {
@@ -514,23 +623,25 @@ function Refresh-StatusView {
     $dbPath = Find-KuGouDb
     $statusBox.Text = @(
         '环境状态',
-        ('kgg-dec.exe        ：' + $(if ($status.kggDec) { '已就绪' } else { '缺失' })),
-        ('unlockKuGoWin-64  ：' + $(if ($status.unlock64) { '已就绪' } else { '缺失' })),
-        ('ffmpeg.exe         ：' + $(if ($status.ffmpeg) { '已就绪' } else { '缺失' })),
-        ('kgm.mask           ：' + $(if ($status.kgmMask) { '已就绪' } else { '缺失' })),
-        ('infra.dll          ：' + $(if ($status.infra) { '已就绪' } else { '缺失' })),
-        ('ncmdump.exe        ：' + $(if ($status.ncmdump) { '已就绪' } else { '缺失' })),
-        ('KGMusicV3.db       ：' + $(if ($status.kugouDb) { '已找到' } else { '未找到' })),
+        ('kgg-dec.exe        ：' + $(if ($status.kggDec) { '已就绪' } else { '缺失，KGG 转换将不可用' })),
+        ('unlockKuGoWin-64  ：' + $(if ($status.unlock64) { '已就绪' } else { '缺失，KGM/KGMA 转换将不可用' })),
+        ('ffmpeg.exe         ：' + $(if ($status.ffmpeg) { '已就绪' } else { '缺失，多格式导出将不可用' })),
+        ('kgm.mask           ：' + $(if ($status.kgmMask) { '已就绪' } else { '缺失，KGM/KGMA 转换可能失败' })),
+        ('infra.dll          ：' + $(if ($status.infra) { '已就绪' } else { '缺失，部分工具链可能失败' })),
+        ('ncmdump.exe        ：' + $(if ($status.ncmdump) { '已就绪' } else { '缺失，NCM 转换将不可用' })),
+        ('KGMusicV3.db       ：' + $(if ($status.kugouDb) { '已找到' } else { '未找到，KGG 可能失败' })),
         '',
         ('数据库路径         ：' + $(if ($dbPath) { $dbPath } else { '未检测到' })),
         '',
-        ('output 目录        ：' + $OutputDir),
-        ('logs 目录          ：' + $LogsDir)
+        ('输出目录           ：' + $OutputDir),
+        ('日志目录           ：' + $LogsDir)
     ) -join [Environment]::NewLine
 }
 
 Refresh-StatusView
 Update-OutputControls
+Update-FileActionState
+Update-ResultSummary -StatusText '准备就绪' -Details @('请先添加文件，再选择输出格式开始转换。')
 
 $btnPick.Add_Click({
     $dialog = New-Object System.Windows.Forms.OpenFileDialog
@@ -544,27 +655,52 @@ $btnPick.Add_Click({
                 [void]$fileList.Items.Add($file)
             }
         }
-        $resultLabel.Text = '已选择文件：' + $selectedFiles.Count
+        $fileCountLabel.Text = '共 ' + $selectedFiles.Count + ' 个文件'
+        Update-FileActionState
+        Update-ResultSummary -StatusText ('已添加 ' + $selectedFiles.Count + ' 个文件') -Details @('确认输出格式后即可开始转换。')
     }
+})
+
+$btnRemove.Add_Click({
+    $itemsToRemove = @($fileList.SelectedItems)
+    foreach ($item in $itemsToRemove) {
+        [void]$selectedFiles.Remove([string]$item)
+        [void]$fileList.Items.Remove($item)
+    }
+    $fileCountLabel.Text = '共 ' + $selectedFiles.Count + ' 个文件'
+    Update-FileActionState
+    if ($selectedFiles.Count -eq 0) {
+        Update-ResultSummary -StatusText '准备就绪' -Details @('请先添加文件，再选择输出格式开始转换。')
+    }
+    else {
+        Update-ResultSummary -StatusText ('当前保留 ' + $selectedFiles.Count + ' 个文件') -Details @('可继续添加文件或直接开始转换。')
+    }
+})
+
+$fileList.Add_SelectedIndexChanged({
+    Update-FileActionState
 })
 
 $btnClear.Add_Click({
     $selectedFiles.Clear()
     $fileList.Items.Clear()
     $logBox.Clear()
-    $resultLabel.Text = '准备就绪。'
     $qualityCombo.SelectedIndex = 0
     $outputFormatCombo.SelectedIndex = 0
+    $fileCountLabel.Text = '共 0 个文件'
     Update-OutputControls
+    Update-FileActionState
+    Update-ResultSummary -StatusText '准备就绪' -Details @('文件列表已清空，请重新添加文件。')
 })
 
 $outputFormatCombo.Add_SelectedIndexChanged({
     Update-OutputControls
+    Update-ResultSummary -StatusText '输出设置已更新' -Details @('当前输出格式：' + $outputFormatCombo.SelectedItem.ToString())
 })
 
 $btnOutput.Add_Click({ Start-Process -FilePath 'explorer.exe' -ArgumentList $OutputDir | Out-Null })
 $btnLogs.Add_Click({ Start-Process -FilePath 'explorer.exe' -ArgumentList $LogsDir | Out-Null })
-$btnRefresh.Add_Click({ Refresh-StatusView; $resultLabel.Text = '状态已刷新。' })
+$btnRefresh.Add_Click({ Refresh-StatusView; Update-ResultSummary -StatusText '环境状态已刷新' -Details @('如有工具缺失，请先补齐再转换。') })
 
 $btnConvert.Add_Click({
     if ($selectedFiles.Count -eq 0) {
@@ -574,29 +710,30 @@ $btnConvert.Add_Click({
 
     try {
         $form.Cursor = [System.Windows.Forms.Cursors]::WaitCursor
-        $btnConvert.Enabled = $false
-        $resultLabel.Text = '正在转换...'
+        Set-BusyState -IsBusy $true
+        Update-ResultSummary -StatusText '正在转换，请稍候' -Details @('输出格式：' + $outputFormatCombo.SelectedItem.ToString(), '待处理文件：' + $selectedFiles.Count + ' 个')
         $logBox.Text = '正在执行转换，请稍候...' + [Environment]::NewLine
 
         $result = Convert-AudioFiles -SourcePaths @($selectedFiles.ToArray()) -QualityPreset $qualityCombo.SelectedItem.ToString() -OutputFormat $outputFormatCombo.SelectedItem.ToString()
         $logBox.Text = ($result.messages -join [Environment]::NewLine)
-        $resultLabel.Text = '转换完成，' + $result.outputFormat + ' 数量：' + $result.outputCount
 
         if ($result.outputCount -gt 0) {
+            Update-ResultSummary -StatusText '转换完成' -Details @('输出格式：' + $result.outputFormat, '生成文件：' + $result.outputCount + ' 个', '可点击“打开输出目录”查看结果。')
             [System.Windows.Forms.MessageBox]::Show('转换完成，' + $result.outputFormat + ' 文件已输出到 output 文件夹。', '完成') | Out-Null
         }
         else {
+            Update-ResultSummary -StatusText '转换完成，但未生成文件' -Details @('输出格式：' + $result.outputFormat, '请查看右侧日志定位原因。')
             [System.Windows.Forms.MessageBox]::Show('没有生成 ' + $result.outputFormat + ' 文件，请查看日志了解详情。', '转换完成但有警告') | Out-Null
         }
     }
     catch {
         $logBox.Text += '[错误] ' + $_.Exception.Message + [Environment]::NewLine
-        $resultLabel.Text = '转换失败。'
+        Update-ResultSummary -StatusText '转换失败' -Details @('错误信息：' + $_.Exception.Message, '请查看右侧日志了解详情。')
         [System.Windows.Forms.MessageBox]::Show('转换失败：' + $_.Exception.Message, '错误') | Out-Null
     }
     finally {
         $form.Cursor = [System.Windows.Forms.Cursors]::Default
-        $btnConvert.Enabled = $true
+        Set-BusyState -IsBusy $false
     }
 })
 
