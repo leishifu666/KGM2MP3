@@ -3,3 +3,5 @@ output/
 logs/
 .omc/
 work-*/
+tools/ncmdump.zip
+tools/ncmdump-extract/
