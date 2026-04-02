@@ -127,6 +127,30 @@ function Get-OutputFormatConfig {
                 SupportsQuality = $false
             }
         }
+        'OGG' {
+            return [pscustomobject]@{
+                Label = 'OGG'
+                Extension = '.ogg'
+                Args = @('-codec:a', 'libvorbis', '-q:a', '5')
+                SupportsQuality = $false
+            }
+        }
+        'OPUS' {
+            return [pscustomobject]@{
+                Label = 'OPUS'
+                Extension = '.opus'
+                Args = @('-codec:a', 'libopus', '-b:a', '160k', '-vbr', 'on')
+                SupportsQuality = $false
+            }
+        }
+        'WMA' {
+            return [pscustomobject]@{
+                Label = 'WMA'
+                Extension = '.wma'
+                Args = @('-codec:a', 'wmav2', '-b:a', '192k')
+                SupportsQuality = $false
+            }
+        }
         default {
             $mp3Quality = Get-Mp3QualityConfig -Preset $QualityPreset
             return [pscustomobject]@{
@@ -368,7 +392,7 @@ $title.AutoSize = $true
 $form.Controls.Add($title)
 
 $desc = New-Object System.Windows.Forms.Label
-$desc.Text = '支持 kgg / kgm / kgma / ncm / mp3 / wav / aac / m4a / flac / ogg / wma / opus 输入，可导出为 MP3 / WAV / FLAC / M4A。'
+$desc.Text = '支持 kgg / kgm / kgma / ncm / mp3 / wav / aac / m4a / flac / ogg / wma / opus 输入，可导出为 MP3 / WAV / FLAC / M4A / OGG / OPUS / WMA。'
 $desc.Location = New-Object System.Drawing.Point(22, 50)
 $desc.AutoSize = $true
 $form.Controls.Add($desc)
@@ -413,6 +437,9 @@ $outputFormatCombo.DropDownStyle = 'DropDownList'
 [void]$outputFormatCombo.Items.Add('WAV')
 [void]$outputFormatCombo.Items.Add('FLAC')
 [void]$outputFormatCombo.Items.Add('M4A')
+[void]$outputFormatCombo.Items.Add('OGG')
+[void]$outputFormatCombo.Items.Add('OPUS')
+[void]$outputFormatCombo.Items.Add('WMA')
 $outputFormatCombo.SelectedIndex = 0
 $form.Controls.Add($outputFormatCombo)
 
