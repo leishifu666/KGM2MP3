@@ -495,15 +495,15 @@ $form.Controls.Add($fileList)
 $summaryLabel = New-Object System.Windows.Forms.Label
 $summaryLabel.Text = '结果摘要'
 $summaryLabel.Font = New-Object System.Drawing.Font('Microsoft YaHei', 10, [System.Drawing.FontStyle]::Bold)
-$summaryLabel.Location = New-Object System.Drawing.Point(430, 88)
+$summaryLabel.Location = New-Object System.Drawing.Point(430, 104)
 $summaryLabel.AutoSize = $true
 $form.Controls.Add($summaryLabel)
 
 $summaryBox = New-Object System.Windows.Forms.TextBox
 $summaryBox.Multiline = $true
 $summaryBox.ReadOnly = $true
-$summaryBox.Location = New-Object System.Drawing.Point(430, 110)
-$summaryBox.Size = New-Object System.Drawing.Size(390, 95)
+$summaryBox.Location = New-Object System.Drawing.Point(430, 126)
+$summaryBox.Size = New-Object System.Drawing.Size(390, 104)
 $summaryBox.BackColor = [System.Drawing.Color]::WhiteSmoke
 $summaryBox.BorderStyle = 'FixedSingle'
 $form.Controls.Add($summaryBox)
@@ -511,7 +511,7 @@ $form.Controls.Add($summaryBox)
 $logLabel = New-Object System.Windows.Forms.Label
 $logLabel.Text = '处理日志'
 $logLabel.Font = New-Object System.Drawing.Font('Microsoft YaHei', 10, [System.Drawing.FontStyle]::Bold)
-$logLabel.Location = New-Object System.Drawing.Point(430, 215)
+$logLabel.Location = New-Object System.Drawing.Point(430, 240)
 $logLabel.AutoSize = $true
 $form.Controls.Add($logLabel)
 
@@ -519,8 +519,8 @@ $logBox = New-Object System.Windows.Forms.TextBox
 $logBox.Multiline = $true
 $logBox.ReadOnly = $true
 $logBox.ScrollBars = 'Vertical'
-$logBox.Location = New-Object System.Drawing.Point(430, 237)
-$logBox.Size = New-Object System.Drawing.Size(390, 323)
+$logBox.Location = New-Object System.Drawing.Point(430, 262)
+$logBox.Size = New-Object System.Drawing.Size(390, 298)
 $logBox.BackColor = [System.Drawing.Color]::WhiteSmoke
 $logBox.BorderStyle = 'FixedSingle'
 $form.Controls.Add($logBox)
