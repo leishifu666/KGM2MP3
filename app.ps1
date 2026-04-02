@@ -96,10 +96,69 @@ function Get-Mp3QualityConfig {
     }
 }
 
+function Get-OutputFormatConfig {
+    param(
+        [string]$Format,
+        [string]$QualityPreset
+    )
+
+    switch ($Format) {
+        'WAV' {
+            return [pscustomobject]@{
+                Label = 'WAV'
+                Extension = '.wav'
+                Args = @('-codec:a', 'pcm_s16le')
+                SupportsQuality = $false
+            }
+        }
+        'FLAC' {
+            return [pscustomobject]@{
+                Label = 'FLAC'
+                Extension = '.flac'
+                Args = @('-codec:a', 'flac')
+                SupportsQuality = $false
+            }
+        }
+        'M4A' {
+            return [pscustomobject]@{
+                Label = 'M4A'
+                Extension = '.m4a'
+                Args = @('-codec:a', 'aac', '-b:a', '192k')
+                SupportsQuality = $false
+            }
+        }
+        default {
+            $mp3Quality = Get-Mp3QualityConfig -Preset $QualityPreset
+            return [pscustomobject]@{
+                Label = 'MP3'
+                Extension = '.mp3'
+                Args = $mp3Quality.Args
+                SupportsQuality = $true
+            }
+        }
+    }
+}
+
+function Get-ConvertibleAudioExtensions {
+    return @('.mp3', '.wav', '.aac', '.m4a', '.flac', '.ogg', '.wma', '.opus')
+}
+
+function Get-NormalizedBaseName {
+    param([System.IO.FileInfo]$File)
+
+    $baseName = [IO.Path]::GetFileNameWithoutExtension($File.Name)
+    if ($baseName.EndsWith('_kgg-dec')) {
+        $baseName = $baseName.Substring(0, $baseName.Length - 8)
+    }
+
+    return $baseName
+}
+
 function Convert-AudioFiles {
     param(
         [string[]]$SourcePaths,
-        [string]$QualityPreset = '高质量'
+        [string]$QualityPreset = '高质量',
+        [string]$OutputFormat = 'MP3'
     )
 
     $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
@@ -117,7 +176,8 @@ function Convert-AudioFiles {
     $infra = Join-Path $ToolsDir 'infra.dll'
     $ncmdump = Join-Path $ToolsDir 'ncmdump.exe'
     $db = Find-KuGouDb
-    $qualityConfig = Get-Mp3QualityConfig -Preset $QualityPreset
+    $outputConfig = Get-OutputFormatConfig -Format $OutputFormat -QualityPreset $QualityPreset
+    $convertibleExtensions = Get-ConvertibleAudioExtensions
 
     if (-not (Test-Path -LiteralPath $kggDec)) { throw 'Missing kgg-dec.exe' }
     if (-not (Test-Path -LiteralPath $unlock64)) { throw 'Missing unlockKuGoWin-64.exe' }
@@ -125,8 +185,15 @@ function Convert-AudioFiles {
     if (-not (Test-Path -LiteralPath $kgmMask)) { throw 'Missing kgm.mask' }
 
     $lines = New-Object 'System.Collections.Generic.List[string]'
+    $generatedOutputs = New-Object 'System.Collections.Generic.List[string]'
     $lines.Add('[信息] 开始转换')
-    $lines.Add('[信息] 输出质量：' + $qualityConfig.Label)
+    $lines.Add('[信息] 输出格式：' + $outputConfig.Label)
+    if ($outputConfig.SupportsQuality) {
+        $lines.Add('[信息] 输出质量：' + $QualityPreset)
+    }
+    else {
+        $lines.Add('[信息] 当前输出格式不使用质量档位，已按固定参数导出。')
+    }
 
     Copy-Item -LiteralPath $kggDec -Destination (Join-Path $workDir 'kgg-dec.exe') -Force
     Copy-Item -LiteralPath $unlock64 -Destination (Join-Path $workDir 'unlockKuGoWin-64.exe') -Force
@@ -222,18 +289,31 @@ function Convert-AudioFiles {
             }
         }
 
-        $rootFlacs = @(Get-ChildItem -LiteralPath $workDir -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -like '*_kgg-dec.flac' -or $_.Extension -eq '.flac' })
-        foreach ($file in $rootFlacs) {
-            $baseName = [IO.Path]::GetFileNameWithoutExtension($file.Name)
-            if ($baseName.EndsWith('_kgg-dec')) {
-                $baseName = $baseName.Substring(0, $baseName.Length - 8)
+        $audioFiles = @()
+        $audioFiles += @(Get-ChildItem -LiteralPath $workDir -File -ErrorAction SilentlyContinue | Where-Object { $convertibleExtensions -contains $_.Extension.ToLower() })
+        $audioFiles += @(Get-ChildItem -LiteralPath $workOut -File -ErrorAction SilentlyContinue | Where-Object { $convertibleExtensions -contains $_.Extension.ToLower() })
+        $audioFiles = @($audioFiles | Sort-Object FullName -Unique)
+
+        foreach ($file in $audioFiles) {
+            $baseName = Get-NormalizedBaseName -File $file
+            $dst = Join-Path $OutputDir ($baseName + $outputConfig.Extension)
+
+            if ($file.Extension.ToLower() -eq $outputConfig.Extension.ToLower()) {
+                if ([System.IO.Path]::GetFullPath($file.FullName) -ne [System.IO.Path]::GetFullPath($dst)) {
+                    Copy-Item -LiteralPath $file.FullName -Destination $dst -Force
+                }
+                if (Test-Path -LiteralPath $dst) {
+                    $generatedOutputs.Add($dst)
+                }
+                $lines.Add('[信息] 已直接输出：' + $file.Name)
+                continue
             }
-            $dst = Join-Path $OutputDir ($baseName + '.mp3')
-            $lines.Add('[信息] 正在转换为 MP3：' + $file.Name)
+
+            $lines.Add('[信息] 正在转换为 ' + $outputConfig.Label + '：' + $file.Name)
             $previousPreference = $ErrorActionPreference
             try {
                 $ErrorActionPreference = 'Continue'
-                & $ffmpeg -y -i $file.FullName @($qualityConfig.Args) -map_metadata 0 $dst 2>&1 | Out-Null
+                & $ffmpeg -y -i $file.FullName -map 0:a:0 @($outputConfig.Args) -map_metadata 0 $dst 2>&1 | Out-Null
                 $exitCode = $LASTEXITCODE
             }
             finally {
@@ -242,32 +322,8 @@ function Convert-AudioFiles {
             if ($exitCode -ne 0) {
                 $lines.Add('[警告] ffmpeg 退出码：' + $exitCode)
             }
-        }
-
-        $outFlacs = @(Get-ChildItem -LiteralPath $workOut -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -like '*.flac' })
-        foreach ($file in $outFlacs) {
-            $dst = Join-Path $OutputDir ($file.BaseName + '.mp3')
-            $lines.Add('[信息] 正在转换为 MP3：' + $file.Name)
-            $previousPreference = $ErrorActionPreference
-            try {
-                $ErrorActionPreference = 'Continue'
-                & $ffmpeg -y -i $file.FullName @($qualityConfig.Args) -map_metadata 0 $dst 2>&1 | Out-Null
-                $exitCode = $LASTEXITCODE
-            }
-            finally {
-                $ErrorActionPreference = $previousPreference
-            }
-            if ($exitCode -ne 0) {
-                $lines.Add('[警告] ffmpeg 退出码：' + $exitCode)
-            }
-        }
-
-        $ncmMp3Files = @(Get-ChildItem -LiteralPath $workDir -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -eq '.mp3' })
-        foreach ($file in $ncmMp3Files) {
-            $dst = Join-Path $OutputDir $file.Name
-            if ([System.IO.Path]::GetFullPath($file.FullName) -ne [System.IO.Path]::GetFullPath($dst)) {
-                Copy-Item -LiteralPath $file.FullName -Destination $dst -Force
-                $lines.Add('[信息] 已输出 NCM 生成的 MP3：' + $file.Name)
+            elseif (Test-Path -LiteralPath $dst) {
+                $generatedOutputs.Add($dst)
             }
         }
     }
@@ -275,23 +331,24 @@ function Convert-AudioFiles {
         Pop-Location
     }
 
-    $mp3Files = @(Get-ChildItem -LiteralPath $OutputDir -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -like '*.mp3' })
-    if ($mp3Files.Count -eq 0) {
-        $lines.Add('[警告] 没有生成 MP3 文件。')
+    $outputFiles = @($generatedOutputs | Sort-Object -Unique)
+    if ($outputFiles.Count -eq 0) {
+        $lines.Add('[警告] 没有生成 ' + $outputConfig.Label + ' 文件。')
         $lines.Add('[警告] 如果 KGG 提示 ekey 或 key not found，请在本机酷狗重新下载歌曲后再试。')
     }
     else {
-        $lines.Add('[信息] 已生成 MP3 数量：' + $mp3Files.Count)
+        $lines.Add('[信息] 已生成 ' + $outputConfig.Label + ' 数量：' + $outputFiles.Count)
     }
 
     Set-Content -LiteralPath $logFile -Value ($lines -join [Environment]::NewLine) -Encoding UTF8
 
     return [pscustomobject]@{
-        logFile   = $logFile
-        outputDir = $OutputDir
-        mp3Count  = $mp3Files.Count
-        files     = @($mp3Files | Select-Object -ExpandProperty Name)
-        messages  = $lines
+        logFile      = $logFile
+        outputDir    = $OutputDir
+        outputCount  = $outputFiles.Count
+        outputFormat = $outputConfig.Label
+        files        = @($outputFiles | ForEach-Object { [System.IO.Path]::GetFileName($_) })
+        messages     = $lines
     }
 }
 
@@ -311,7 +368,7 @@ $title.AutoSize = $true
 $form.Controls.Add($title)
 
 $desc = New-Object System.Windows.Forms.Label
-$desc.Text = '选择 kgg / kgm / kgma / flac / ncm 文件，一键转换成 mp3。'
+$desc.Text = '支持 kgg / kgm / kgma / ncm / mp3 / wav / aac / m4a / flac / ogg / wma / opus 输入，可导出为 MP3 / WAV / FLAC / M4A。'
 $desc.Location = New-Object System.Drawing.Point(22, 50)
 $desc.AutoSize = $true
 $form.Controls.Add($desc)
@@ -341,6 +398,23 @@ $qualityCombo.DropDownStyle = 'DropDownList'
 [void]$qualityCombo.Items.Add('省空间')
 $qualityCombo.SelectedIndex = 0
 $form.Controls.Add($qualityCombo)
+
+$outputFormatLabel = New-Object System.Windows.Forms.Label
+$outputFormatLabel.Text = '输出格式：'
+$outputFormatLabel.Location = New-Object System.Drawing.Point(250, 250)
+$outputFormatLabel.AutoSize = $true
+$form.Controls.Add($outputFormatLabel)
+
+$outputFormatCombo = New-Object System.Windows.Forms.ComboBox
+$outputFormatCombo.Location = New-Object System.Drawing.Point(325, 246)
+$outputFormatCombo.Size = New-Object System.Drawing.Size(85, 28)
+$outputFormatCombo.DropDownStyle = 'DropDownList'
+[void]$outputFormatCombo.Items.Add('MP3')
+[void]$outputFormatCombo.Items.Add('WAV')
+[void]$outputFormatCombo.Items.Add('FLAC')
+[void]$outputFormatCombo.Items.Add('M4A')
+$outputFormatCombo.SelectedIndex = 0
+$form.Controls.Add($outputFormatCombo)
 
 $fileList = New-Object System.Windows.Forms.ListBox
 $fileList.Location = New-Object System.Drawing.Point(20, 280)
@@ -402,6 +476,12 @@ $form.Controls.Add($btnRefresh)
 
 $selectedFiles = New-Object 'System.Collections.Generic.List[string]'
 
+function Update-OutputControls {
+    $isMp3 = $outputFormatCombo.SelectedItem.ToString() -eq 'MP3'
+    $qualityCombo.Enabled = $isMp3
+    $qualityLabel.Enabled = $isMp3
+}
+
 function Refresh-StatusView {
     $status = Ensure-Tools
     $dbPath = Find-KuGouDb
@@ -423,11 +503,12 @@ function Refresh-StatusView {
 }
 
 Refresh-StatusView
+Update-OutputControls
 
 $btnPick.Add_Click({
     $dialog = New-Object System.Windows.Forms.OpenFileDialog
     $dialog.Multiselect = $true
-    $dialog.Filter = '音频文件|*.kgg;*.kgm;*.kgma;*.flac;*.ncm'
+    $dialog.Filter = '音频文件|*.kgg;*.kgm;*.kgma;*.ncm;*.mp3;*.wav;*.aac;*.m4a;*.flac;*.ogg;*.wma;*.opus'
     $dialog.Title = '选择音频文件'
     if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
         foreach ($file in $dialog.FileNames) {
@@ -446,6 +527,12 @@ $btnClear.Add_Click({
     $logBox.Clear()
     $resultLabel.Text = '准备就绪。'
     $qualityCombo.SelectedIndex = 0
+    $outputFormatCombo.SelectedIndex = 0
+    Update-OutputControls
+})
+
+$outputFormatCombo.Add_SelectedIndexChanged({
+    Update-OutputControls
 })
 
 $btnOutput.Add_Click({ Start-Process -FilePath 'explorer.exe' -ArgumentList $OutputDir | Out-Null })
@@ -464,15 +551,15 @@ $btnConvert.Add_Click({
         $resultLabel.Text = '正在转换...'
         $logBox.Text = '正在执行转换，请稍候...' + [Environment]::NewLine
 
-        $result = Convert-AudioFiles -SourcePaths @($selectedFiles.ToArray()) -QualityPreset $qualityCombo.SelectedItem.ToString()
+        $result = Convert-AudioFiles -SourcePaths @($selectedFiles.ToArray()) -QualityPreset $qualityCombo.SelectedItem.ToString() -OutputFormat $outputFormatCombo.SelectedItem.ToString()
         $logBox.Text = ($result.messages -join [Environment]::NewLine)
-        $resultLabel.Text = '转换完成，MP3 数量：' + $result.mp3Count
+        $resultLabel.Text = '转换完成，' + $result.outputFormat + ' 数量：' + $result.outputCount
 
-        if ($result.mp3Count -gt 0) {
-            [System.Windows.Forms.MessageBox]::Show('转换完成，MP3 文件已输出到 output 文件夹。', '完成') | Out-Null
+        if ($result.outputCount -gt 0) {
+            [System.Windows.Forms.MessageBox]::Show('转换完成，' + $result.outputFormat + ' 文件已输出到 output 文件夹。', '完成') | Out-Null
         }
         else {
-            [System.Windows.Forms.MessageBox]::Show('没有生成 MP3 文件，请查看日志了解详情。', '转换完成但有警告') | Out-Null
+            [System.Windows.Forms.MessageBox]::Show('没有生成 ' + $result.outputFormat + ' 文件，请查看日志了解详情。', '转换完成但有警告') | Out-Null
         }
     }
     catch {
@@ -489,3 +576,4 @@ $btnConvert.Add_Click({
 if (-not $env:KUGOU_HEADLESS) {
     [void]$form.ShowDialog()
 }
+
