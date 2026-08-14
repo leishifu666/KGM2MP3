@@ -2,6 +2,7 @@ input/
 output/
 logs/
 .omc/
+.claude/
 work-*/
 tools/ncmdump.zip
 tools/ncmdump-extract/
